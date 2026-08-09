@@ -19,26 +19,23 @@ uv pip install -e .
 praxis --help
 ```
 
-### Local web app (Milestone 3)
+### Local web app (Milestone 4)
 
 ```bash
 cd frontend && npm install && npm run build && cd ..
+uv sync
 uv run praxis app
 ```
 
-The browser opens with a one-shot capability token in the URL fragment (`#token=…`). The app reads it into memory and clears the hash; privileged API calls send `X-Praxis-Token`.
+Capability token stays in the URL fragment (`#token=…`) for REST. The embedded terminal uses a short-lived, single-use ticket from `POST /api/terminal/ticket` and connects to `ws://…/ws/terminal?ticket=…` (never puts the capability token in the WebSocket URL).
 
-From the home catalog, start an exercise, edit repository text files in Monaco, Save, and Check. Git commands still need an external terminal until Milestone 4.
+Workbench: file tree + Monaco + objectives + xterm.js over a real PTY/ConPTY shell in the exercise repo.
 
-Editor reads/writes are capped at **1 MiB** of UTF-8 text per file (`MAX_EDITOR_BYTES` in the API filesystem helper).
-
-Dev with Vite HMR (same per-launch token; Origin allowlist unchanged):
+Dev with Vite HMR:
 
 ```bash
-# terminal A — opens http://127.0.0.1:5173/#token=…
 uv run praxis app --dev
-
-# terminal B
+# other terminal:
 cd frontend && npm run dev
 ```
 

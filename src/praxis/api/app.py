@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from praxis.api.errors import register_exception_handlers
-from praxis.api.routes import catalog, files, session
+from praxis.api.routes import catalog, files, session, terminal
+from praxis.api.routes.terminal import terminal_websocket
 from praxis.api.security import AppSecurity, LocalSecurityMiddleware
 from praxis.registry import bootstrap_registry
+from praxis.terminal.base import TerminalSession
+from praxis.terminal.factory import create_terminal_session
+from praxis.terminal.registry import TerminalRegistry
+from praxis.terminal.tickets import TerminalTicketStore
 
 # Default Vite dev origins (proxy keeps FE same-origin to Vite; Origin is forwarded).
 DEFAULT_VITE_ORIGINS = (
@@ -18,12 +25,17 @@ DEFAULT_VITE_ORIGINS = (
     "http://localhost:5173",
 )
 
+TerminalFactory = Callable[..., Awaitable[TerminalSession]]
+
 
 def create_app(
     *,
     security: AppSecurity | None = None,
     allow_vite_origins: bool = True,
     static_dir: Path | None = None,
+    ticket_store: TerminalTicketStore | None = None,
+    terminal_registry: TerminalRegistry | None = None,
+    terminal_factory: TerminalFactory | None = None,
 ) -> FastAPI:
     """Create the local Praxis API application.
 
@@ -44,14 +56,29 @@ def create_app(
     else:
         sec = security
 
+    registry = terminal_registry or TerminalRegistry()
+    tickets = ticket_store or TerminalTicketStore()
+    factory = terminal_factory or create_terminal_session
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await registry.close_all()
+
     app = FastAPI(
         title="Praxis",
         version="0.1.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=lifespan,
     )
     app.state.security = sec
+    app.state.ticket_store = tickets
+    app.state.terminal_registry = registry
+    app.state.terminal_factory = factory
 
     register_exception_handlers(app)
     app.add_middleware(LocalSecurityMiddleware, security=sec)
@@ -59,6 +86,8 @@ def create_app(
     app.include_router(catalog.router, prefix="/api")
     app.include_router(session.router, prefix="/api")
     app.include_router(files.router, prefix="/api")
+    app.include_router(terminal.router, prefix="/api")
+    app.add_api_websocket_route("/ws/terminal", terminal_websocket)
 
     if static_dir is not None and static_dir.is_dir():
         app.mount(

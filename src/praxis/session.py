@@ -176,6 +176,15 @@ def find_workspace_from_cwd(cwd: Path | None = None) -> Path | None:
     return None
 
 
+def load_session_by_id(session_id: str, home: Path | None = None) -> Session:
+    """Load a retained session by id (does not require it to be globally active)."""
+    root = home or praxis_home()
+    workspace = workspace_path(session_id, root)
+    if not session_file(workspace).is_file():
+        raise SessionNotFoundError(f"No Praxis session found for id {session_id!r}")
+    return load_session(workspace)
+
+
 def load_active_session(home: Path | None = None) -> Session | None:
     root = home or praxis_home()
     state = load_global_state(root)

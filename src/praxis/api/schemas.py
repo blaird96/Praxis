@@ -89,3 +89,9 @@ class FileWriteOut(BaseModel):
     path: str
     revision: str
     size: int
+
+
+class TerminalTicketResponse(BaseModel):
+    ticket: str
+    expires_in: int
+    session_id: str

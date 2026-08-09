@@ -1,10 +1,10 @@
-"""Active-session read, check, and start endpoints."""
+"""Active-session read, check, start, and reset endpoints."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from praxis import runner
 from praxis.api.schemas import (
@@ -15,6 +15,8 @@ from praxis.api.schemas import (
     StartSessionRequest,
 )
 from praxis.models import Assignment, CheckResult, Session
+from praxis.session import load_global_state
+from praxis.terminal.registry import TerminalRegistry
 
 router = APIRouter(prefix="/session", tags=["session"])
 
@@ -62,6 +64,13 @@ def _session_out(
     )
 
 
+async def _close_terminals(request: Request, session_id: str | None) -> None:
+    if not session_id:
+        return
+    registry: TerminalRegistry = request.app.state.terminal_registry
+    await registry.close_for_session(session_id)
+
+
 @router.get("", response_model=SessionOut)
 def get_session(
     include_check: bool = Query(
@@ -85,10 +94,12 @@ def check_session() -> SessionOut:
 
 
 @router.post("/start", response_model=SessionOut)
-def start_session(body: StartSessionRequest) -> SessionOut:
+async def start_session(request: Request, body: StartSessionRequest) -> SessionOut:
     """Start a scenario via the existing transactional runner."""
+    previous_id = load_global_state().active_session_id
+    # Tear down shells for the session being replaced before switching.
+    await _close_terminals(request, previous_id)
     started = runner.start(body.module, body.scenario)
-    # Initial objective state for the dashboard (untouched setup should fail).
     check_result = runner.check_active().result
     return _session_out(
         started.session,
@@ -99,8 +110,10 @@ def start_session(body: StartSessionRequest) -> SessionOut:
 
 
 @router.post("/reset", response_model=SessionOut)
-def reset_session() -> SessionOut:
+async def reset_session(request: Request) -> SessionOut:
     """Recreate the active exercise repository and re-run scenario setup."""
+    active = runner.require_active_session()
+    await _close_terminals(request, active.session_id)
     reset = runner.reset_active()
     check_result = runner.check_active().result
     return _session_out(reset.session, reset.assignment, check_result)

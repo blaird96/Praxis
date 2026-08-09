@@ -155,3 +155,19 @@ export function writeFile(
     }),
   });
 }
+
+export type TerminalTicket = {
+  ticket: string;
+  expires_in: number;
+  session_id: string;
+};
+
+export function fetchTerminalTicket(): Promise<TerminalTicket> {
+  return api<TerminalTicket>("/api/terminal/ticket", { method: "POST" });
+}
+
+/** Build the terminal WebSocket URL for a one-shot ticket (never put the capability token here). */
+export function terminalWebSocketUrl(ticket: string): string {
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/ws/terminal?ticket=${encodeURIComponent(ticket)}`;
+}

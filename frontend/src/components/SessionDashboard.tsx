@@ -8,6 +8,7 @@ import {
 } from "../api/client";
 import { FileEditor } from "./FileEditor";
 import { FileTree } from "./FileTree";
+import { TerminalPane } from "./TerminalPane";
 
 type Props = {
   session: Session;
@@ -37,6 +38,7 @@ export function SessionDashboard({
 }: Props) {
   const assignment = session.assignment;
   const [treeKey, setTreeKey] = useState(0);
+  const [terminalKey, setTerminalKey] = useState(0);
   const [open, setOpen] = useState<OpenFile | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -77,6 +79,29 @@ export function SessionDashboard({
     }
   }
 
+  async function reloadFromDisk() {
+    if (!open) return;
+    if (dirty) {
+      const proceed = window.confirm(
+        `Discard unsaved changes to ${open.path} and reload from disk?`,
+      );
+      if (!proceed) return;
+    }
+    try {
+      const file = await readFile(open.path);
+      setOpen({
+        path: file.path,
+        content: file.content,
+        revision: file.revision,
+        baseline: file.content,
+      });
+      setConflict(null);
+      setSaveMsg("Reloaded from disk");
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   async function save() {
     if (!open || saving) return;
     setSaving(true);
@@ -109,6 +134,7 @@ export function SessionDashboard({
     await onReset();
     clearEditor();
     setTreeKey((k) => k + 1);
+    setTerminalKey((k) => k + 1);
   }
 
   return (
@@ -168,115 +194,139 @@ export function SessionDashboard({
         )}
       </details>
 
-      <div className="workbench-grid">
-        <aside className="workbench-files panel">
-          <FileTree
-            treeKey={treeKey}
-            selectedPath={open?.path ?? null}
-            onSelectFile={(path) => void openFile(path)}
-          />
-        </aside>
+      <div className="workbench-main">
+        <div className="workbench-grid">
+          <aside className="workbench-files panel">
+            <FileTree
+              treeKey={treeKey}
+              selectedPath={open?.path ?? null}
+              onSelectFile={(path) => void openFile(path)}
+            />
+          </aside>
 
-        <section className="workbench-editor panel">
-          <div className="editor-toolbar">
-            <div className="editor-title">
-              {open ? (
-                <>
-                  <span className="mono">{open.path}</span>
-                  {dirty && <span className="dirty-dot" title="Unsaved changes">●</span>}
-                </>
-              ) : (
-                <span className="muted">Select a file to edit</span>
-              )}
+          <section className="workbench-editor panel">
+            <div className="editor-toolbar">
+              <div className="editor-title">
+                {open ? (
+                  <>
+                    <span className="mono">{open.path}</span>
+                    {dirty && (
+                      <span className="dirty-dot" title="Unsaved changes">
+                        ●
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="muted">Select a file to edit</span>
+                )}
+              </div>
+              <div className="actions">
+                {conflict && (
+                  <button
+                    type="button"
+                    data-testid="reload-file-button"
+                    onClick={() => void reloadFromDisk()}
+                  >
+                    Reload From Disk
+                  </button>
+                )}
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={!open || !dirty || saving || busy}
+                  data-testid="save-button"
+                  onClick={() => void save()}
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
             </div>
+            {loadError && (
+              <div className="panel error" role="alert" data-testid="file-load-error">
+                {loadError}
+              </div>
+            )}
+            {conflict && (
+              <div className="panel error" role="alert" data-testid="save-conflict">
+                {conflict} Your editor contents were not overwritten. Use Reload
+                From Disk after copying any edits you want to keep.
+              </div>
+            )}
+            {saveMsg && !conflict && (
+              <div
+                className={saveMsg === "Saved" || saveMsg.startsWith("Reloaded")
+                  ? "save-toast"
+                  : "panel error"}
+                role="status"
+                data-testid="save-status"
+              >
+                {saveMsg}
+              </div>
+            )}
+            {open ? (
+              <FileEditor
+                path={open.path}
+                content={open.content}
+                onChange={(value) => setOpen({ ...open, content: value })}
+                onSave={() => void save()}
+              />
+            ) : (
+              !loadError && (
+                <p className="muted editor-placeholder">
+                  Open a text file from the tree. Use the terminal below for Git
+                  and shell commands.
+                </p>
+              )
+            )}
+          </section>
+
+          <aside className="workbench-objectives panel">
+            <h2>Objectives</h2>
+            {!check && <p className="muted">Run Check to evaluate the exercise.</p>}
+            {check && (
+              <>
+                <p>
+                  {check.passed ? (
+                    <span className="badge-pass">All objectives satisfied</span>
+                  ) : (
+                    <span className="badge-fail">Not complete yet</span>
+                  )}
+                </p>
+                {check.objectives.map((objective) => (
+                  <div className="objective" key={objective.id}>
+                    <span
+                      className={objective.passed ? "badge-pass" : "badge-fail"}
+                    >
+                      {objective.passed ? "PASS" : "FAIL"}
+                    </span>
+                    <div>
+                      <div>{objective.description}</div>
+                      {objective.detail && (
+                        <div className="muted">{objective.detail}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
             <div className="actions">
               <button
                 className="primary"
                 type="button"
-                disabled={!open || !dirty || saving || busy}
-                data-testid="save-button"
-                onClick={() => void save()}
+                disabled={busy}
+                data-testid="check-button"
+                onClick={onCheck}
               >
-                {saving ? "Saving…" : "Save"}
+                {busy ? "Checking…" : "Check"}
               </button>
             </div>
-          </div>
-          {loadError && (
-            <div className="panel error" role="alert" data-testid="file-load-error">
-              {loadError}
-            </div>
-          )}
-          {conflict && (
-            <div className="panel error" role="alert" data-testid="save-conflict">
-              {conflict} Your editor contents were not overwritten — reload the
-              file to pick up external changes, or copy your edits first.
-            </div>
-          )}
-          {saveMsg && !conflict && (
-            <div
-              className={saveMsg === "Saved" ? "save-toast" : "panel error"}
-              role="status"
-              data-testid="save-status"
-            >
-              {saveMsg}
-            </div>
-          )}
-          {open ? (
-            <FileEditor
-              path={open.path}
-              content={open.content}
-              onChange={(value) => setOpen({ ...open, content: value })}
-              onSave={() => void save()}
-            />
-          ) : (
-            !loadError && (
-              <p className="muted editor-placeholder">
-                Open a text file from the tree. Git commands still use an external
-                terminal until the in-app terminal arrives.
-              </p>
-            )
-          )}
-        </section>
+          </aside>
+        </div>
 
-        <aside className="workbench-objectives panel">
-          <h2>Objectives</h2>
-          {!check && <p className="muted">Run Check to evaluate the exercise.</p>}
-          {check && (
-            <>
-              <p>
-                {check.passed ? (
-                  <span className="badge-pass">All objectives satisfied</span>
-                ) : (
-                  <span className="badge-fail">Not complete yet</span>
-                )}
-              </p>
-              {check.objectives.map((objective) => (
-                <div className="objective" key={objective.id}>
-                  <span className={objective.passed ? "badge-pass" : "badge-fail"}>
-                    {objective.passed ? "PASS" : "FAIL"}
-                  </span>
-                  <div>
-                    <div>{objective.description}</div>
-                    {objective.detail && (
-                      <div className="muted">{objective.detail}</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-          <div className="actions">
-            <button
-              className="primary"
-              type="button"
-              disabled={busy}
-              data-testid="check-button"
-              onClick={onCheck}
-            >
-              {busy ? "Checking…" : "Check"}
-            </button>
-          </div>
-        </aside>
+        <TerminalPane
+          sessionId={session.session_id}
+          restartToken={terminalKey}
+        />
       </div>
     </div>
   );

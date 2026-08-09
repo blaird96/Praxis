@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -28,6 +28,22 @@ vi.mock("./components/FileEditor", () => ({
           onSave();
         }
       }}
+    />
+  ),
+}));
+
+vi.mock("./components/TerminalPane", () => ({
+  TerminalPane: ({
+    sessionId,
+    restartToken,
+  }: {
+    sessionId: string;
+    restartToken: number;
+  }) => (
+    <div
+      data-testid="terminal-pane"
+      data-session={sessionId}
+      data-restart={restartToken}
     />
   ),
 }));
@@ -156,6 +172,7 @@ describe("Workbench file editing", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.spyOn(client, "fetchCatalog").mockResolvedValue(catalog);
     vi.spyOn(client, "fetchSession").mockResolvedValue(session);
+    vi.spyOn(client, "listFiles").mockResolvedValue(rootListing);
   });
 
   it("loads file tree from API and expands directories lazily", async () => {
@@ -167,11 +184,10 @@ describe("Workbench file editing", () => {
     });
 
     render(<App />);
-    const tree = await screen.findByTestId("file-tree");
-    expect(within(tree).getByTestId("tree-file-greeting.txt")).toBeInTheDocument();
+    expect(await screen.findByTestId("tree-file-greeting.txt")).toBeInTheDocument();
     expect(list).toHaveBeenCalledWith(".");
 
-    await user.click(within(tree).getByTestId("tree-dir-docs"));
+    await user.click(screen.getByTestId("tree-dir-docs"));
     expect(await screen.findByTestId("tree-file-docs/note.txt")).toBeInTheDocument();
     expect(list).toHaveBeenCalledWith("docs");
   });
@@ -192,8 +208,7 @@ describe("Workbench file editing", () => {
     });
 
     render(<App />);
-    await screen.findByTestId("file-tree");
-    await user.click(screen.getByTestId("tree-file-greeting.txt"));
+    await user.click(await screen.findByTestId("tree-file-greeting.txt"));
     const editor = await screen.findByTestId("monaco-mock");
     expect(editor).toHaveValue("old content");
 
@@ -275,7 +290,7 @@ describe("Workbench file editing", () => {
     expect(await screen.findByTestId("file-load-error")).toHaveTextContent(/binary/i);
   });
 
-  it("Reset clears editor and reloads tree", async () => {
+  it("Reset clears editor, reloads tree, and remounts terminal", async () => {
     const user = userEvent.setup();
     const list = vi.spyOn(client, "listFiles").mockResolvedValue(rootListing);
     vi.spyOn(client, "readFile").mockResolvedValue({
@@ -292,6 +307,8 @@ describe("Workbench file editing", () => {
     render(<App />);
     await user.click(await screen.findByTestId("tree-file-greeting.txt"));
     expect(await screen.findByTestId("monaco-mock")).toBeInTheDocument();
+    const term = screen.getByTestId("terminal-pane");
+    expect(term).toHaveAttribute("data-restart", "0");
     const callsBefore = list.mock.calls.length;
     await user.click(screen.getByTestId("reset-button"));
     await waitFor(() => {
@@ -299,6 +316,39 @@ describe("Workbench file editing", () => {
     });
     await waitFor(() => {
       expect(list.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+    expect(screen.getByTestId("terminal-pane")).toHaveAttribute("data-restart", "1");
+  });
+
+  it("Reload From Disk appears on stale revision conflict", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(client, "listFiles").mockResolvedValue(rootListing);
+    vi.spyOn(client, "readFile")
+      .mockResolvedValueOnce({
+        path: "greeting.txt",
+        content: "mine",
+        revision: "rev-1",
+        size: 4,
+      })
+      .mockResolvedValueOnce({
+        path: "greeting.txt",
+        content: "from disk",
+        revision: "rev-2",
+        size: 9,
+      });
+    vi.spyOn(client, "writeFile").mockRejectedValue(
+      new client.ApiError("changed since loaded", 409, "file_conflict"),
+    );
+
+    render(<App />);
+    await user.click(await screen.findByTestId("tree-file-greeting.txt"));
+    const editor = await screen.findByTestId("monaco-mock");
+    await user.type(editor, "!");
+    await user.click(screen.getByTestId("save-button"));
+    expect(await screen.findByTestId("save-conflict")).toBeInTheDocument();
+    await user.click(screen.getByTestId("reload-file-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("monaco-mock")).toHaveValue("from disk");
     });
   });
 
