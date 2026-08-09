@@ -1,3 +1,17 @@
+# AI tools
+.cursor/
+.cursorrules
+.cursorignore
+.cursorconfig
+.cursorhistory
+.cursorhistoryignore
+.cursorhistoryconfig
+.cursorhistoryignore
+.cursorhistoryconfig
+.cursorhistoryignore
+.cursorhistoryconfig
+.cursorhistoryignore
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
