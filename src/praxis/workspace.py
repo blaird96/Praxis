@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import stat
+import time
 import uuid
 from pathlib import Path
 
@@ -17,6 +18,9 @@ from praxis.paths import (
     workspace_path,
     workspaces_root,
 )
+
+_RMTREE_ATTEMPTS = 6
+_RMTREE_RETRY_SECONDS = 0.05
 
 
 def new_session_id() -> str:
@@ -89,8 +93,33 @@ def assert_safe_repo_path(workspace: Path, repo_path: Path) -> Path:
     return resolved
 
 
+def ensure_cwd_outside(path: Path) -> Path | None:
+    """If the process cwd is inside ``path``, move it to a safe parent.
+
+    Windows cannot delete a directory that is the current working directory of
+    the running process (common when ``praxis ui`` is launched from the
+    exercise repo). Returns the previous cwd when a change was made.
+    """
+    target = path.resolve()
+    try:
+        cwd = Path.cwd().resolve()
+    except OSError:
+        return None
+
+    if cwd != target and not cwd.is_relative_to(target):
+        return None
+
+    safe = target.parent if target.parent.exists() else Path.home()
+    if safe.resolve() == cwd or safe.resolve().is_relative_to(target):
+        safe = Path.home()
+    os.chdir(safe)
+    return cwd
+
+
 def _rmtree(path: Path) -> None:
     """Remove a directory tree, clearing read-only bits (common on Windows/.git)."""
+    target = path.resolve()
+    ensure_cwd_outside(target)
 
     def _onexc(func: object, path_str: str, exc: BaseException) -> None:
         try:
@@ -100,7 +129,24 @@ def _rmtree(path: Path) -> None:
         except OSError as retry_exc:
             raise exc from retry_exc
 
-    shutil.rmtree(path, onexc=_onexc)
+    last_error: OSError | None = None
+    for attempt in range(_RMTREE_ATTEMPTS):
+        ensure_cwd_outside(target)
+        try:
+            if not target.exists():
+                return
+            shutil.rmtree(target, onexc=_onexc)
+            return
+        except OSError as exc:
+            last_error = exc
+            time.sleep(_RMTREE_RETRY_SECONDS * (attempt + 1))
+
+    detail = str(last_error) if last_error else "unknown error"
+    raise WorkspaceError(
+        f"Could not remove {target}: {detail}. "
+        "Close any shells or programs using that directory (including a "
+        "terminal whose cwd is inside the exercise repo), then try again."
+    ) from last_error
 
 
 def reset_repo(workspace: Path, repo_path: Path | None = None) -> Path:

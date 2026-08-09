@@ -50,6 +50,22 @@ def test_reset_repo_recreates_empty_directory(praxis_home: Path) -> None:
     assert list(repo.iterdir()) == []
 
 
+def test_reset_repo_succeeds_when_cwd_is_inside_repo(
+    praxis_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows cannot rmtree a directory that is the process cwd."""
+    workspace = create_provisional_workspace(home=praxis_home)
+    repo = repo_dir(workspace)
+    (repo / "dirty.txt").write_text("x", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    reset_repo(workspace)
+
+    assert repo.is_dir()
+    assert list(repo.iterdir()) == []
+    assert not Path.cwd().resolve().is_relative_to(repo.resolve())
+
+
 def test_reset_refuses_symlink_repo(praxis_home: Path, tmp_path: Path) -> None:
     workspace = create_provisional_workspace(home=praxis_home)
     repo = repo_dir(workspace)

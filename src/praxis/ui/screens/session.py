@@ -54,6 +54,10 @@ class SessionScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        # Windows cannot delete the exercise repo while it is this process's cwd.
+        from praxis.workspace import ensure_cwd_outside
+
+        ensure_cwd_outside(Path(self.session.repo_path))
         self._load_assignment()
         self._refresh_meta()
         self.run_check(announce=False)
@@ -142,6 +146,9 @@ class SessionScreen(Screen[None]):
             result = runner.reset()
         except PraxisError as exc:
             self._log(f"[red]Reset error:[/red] {exc.message}")
+            return
+        except Exception as exc:  # noqa: BLE001 — keep UI alive
+            self._log(f"[red]Reset error:[/red] {exc}")
             return
         self.session = result.session
         self.assignment = result.assignment
