@@ -11,6 +11,14 @@ from praxis.models import Assignment, CheckResult
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
+# Canonical difficulty vocabulary (convention; field remains str | None).
+DIFFICULTY_BEGINNER = "beginner"
+DIFFICULTY_INTERMEDIATE = "intermediate"
+DIFFICULTY_ADVANCED = "advanced"
+DIFFICULTIES = frozenset(
+    {DIFFICULTY_BEGINNER, DIFFICULTY_INTERMEDIATE, DIFFICULTY_ADVANCED}
+)
+
 
 @runtime_checkable
 class Scenario(Protocol[StateT]):
@@ -34,7 +42,11 @@ class Scenario(Protocol[StateT]):
 
     @property
     def difficulty(self) -> str | None:
-        """Optional difficulty label (e.g. beginner); None if unset."""
+        """Optional difficulty: beginner | intermediate | advanced; None if unset."""
+
+    @property
+    def concepts(self) -> list[str]:
+        """Short skill tags for catalog/curriculum (may be empty)."""
 
     @property
     def state_model(self) -> type[StateT]:

@@ -43,6 +43,7 @@ def catalog() -> CatalogResponse:
                     title=scenario.title,
                     description=scenario.description,
                     difficulty=scenario.difficulty,
+                    concepts=list(getattr(scenario, "concepts", []) or []),
                 )
             )
         modules.append(

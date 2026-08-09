@@ -27,6 +27,9 @@ export function CatalogView({ catalog, startingKey, onStart }: Props) {
                 {scenario.difficulty && (
                   <p className="muted">Difficulty: {scenario.difficulty}</p>
                 )}
+                {scenario.concepts && scenario.concepts.length > 0 && (
+                  <p className="muted">Concepts: {scenario.concepts.join(", ")}</p>
+                )}
                 <div className="actions">
                   <button
                     className="primary"

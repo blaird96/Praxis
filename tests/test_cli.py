@@ -200,7 +200,7 @@ def test_unknown_module_and_no_session_errors(
     praxis_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     unknown = _invoke(
-        ["start", "docker", "--scenario", "basic"],
+        ["start", "missing-mod", "--scenario", "basic"],
         praxis_home=praxis_home,
     )
     assert unknown.exit_code == 2

@@ -38,9 +38,97 @@ def bootstrap_registry() -> None:
     registration for the same ``(module, id)``. Does not depend on import-time
     side effects — callers (CLI/runner) must invoke this at startup.
     """
+    from praxis.modules.docker.scenarios.dockerfile_basic import (
+        DockerfileBasicScenario,
+    )
+    from praxis.modules.docker.scenarios.dockerfile_broken import (
+        DockerfileBrokenScenario,
+    )
+    from praxis.modules.docker.scenarios.extra_scenarios import (
+        BuildContextScenario,
+        ComposeTwoServiceScenario,
+        LayerCacheScenario,
+        MultistageBuildScenario,
+        NonrootUserScenario,
+        PortsAndEnvScenario,
+        StartupFailureScenario,
+        VolumeBindScenario,
+    )
+    from praxis.modules.git.scenarios.bisect_regression import (
+        BisectRegressionScenario,
+    )
+    from praxis.modules.git.scenarios.cherry_pick_hotfix import (
+        CherryPickHotfixScenario,
+    )
+    from praxis.modules.git.scenarios.clean_merge import CleanMergeScenario
+    from praxis.modules.git.scenarios.discard_local import DiscardLocalScenario
+    from praxis.modules.git.scenarios.diverged_remote import DivergedRemoteScenario
+    from praxis.modules.git.scenarios.feature_branch import FeatureBranchScenario
     from praxis.modules.git.scenarios.merge_conflict import MergeConflictScenario
+    from praxis.modules.git.scenarios.rebase_conflict import RebaseConflictScenario
+    from praxis.modules.git.scenarios.rebase_onto_main import RebaseOntoMainScenario
+    from praxis.modules.git.scenarios.recover_with_reflog import (
+        RecoverWithReflogScenario,
+    )
+    from praxis.modules.git.scenarios.selective_stage import SelectiveStageScenario
+    from praxis.modules.git.scenarios.squash_feature import SquashFeatureScenario
+    from praxis.modules.git.scenarios.stash_context_switch import (
+        StashContextSwitchScenario,
+    )
+    from praxis.modules.git.scenarios.tracking_pull import TrackingPullScenario
+    from praxis.modules.kubernetes.scenarios.all_scenarios import (
+        BadProbeScenario,
+        CrashloopDiagnoseScenario,
+        DeployUnavailableScenario,
+        MissingConfigMapScenario,
+        MissingSecretScenario,
+        PortMismatchScenario,
+        RolloutStuckScenario,
+        SelectorMismatchScenario,
+        WrongImageScenario,
+        WrongNamespaceScenario,
+    )
 
-    _ensure_builtin(MergeConflictScenario())
+    for scenario in (
+        # Git
+        MergeConflictScenario(),
+        FeatureBranchScenario(),
+        SelectiveStageScenario(),
+        TrackingPullScenario(),
+        RebaseOntoMainScenario(),
+        StashContextSwitchScenario(),
+        RecoverWithReflogScenario(),
+        BisectRegressionScenario(),
+        CleanMergeScenario(),
+        DiscardLocalScenario(),
+        RebaseConflictScenario(),
+        CherryPickHotfixScenario(),
+        SquashFeatureScenario(),
+        DivergedRemoteScenario(),
+        # Docker
+        DockerfileBasicScenario(),
+        DockerfileBrokenScenario(),
+        BuildContextScenario(),
+        PortsAndEnvScenario(),
+        VolumeBindScenario(),
+        NonrootUserScenario(),
+        LayerCacheScenario(),
+        MultistageBuildScenario(),
+        ComposeTwoServiceScenario(),
+        StartupFailureScenario(),
+        # Kubernetes
+        DeployUnavailableScenario(),
+        WrongImageScenario(),
+        SelectorMismatchScenario(),
+        PortMismatchScenario(),
+        MissingConfigMapScenario(),
+        MissingSecretScenario(),
+        BadProbeScenario(),
+        WrongNamespaceScenario(),
+        RolloutStuckScenario(),
+        CrashloopDiagnoseScenario(),
+    ):
+        _ensure_builtin(scenario)
 
 
 def get_scenario(module_id: str, scenario_id: str) -> Scenario[Any]:

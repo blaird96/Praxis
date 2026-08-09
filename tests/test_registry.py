@@ -50,9 +50,12 @@ class _DummyScenario:
         return None
 
     @property
+    def concepts(self) -> list[str]:
+        return []
+
+    @property
     def state_model(self) -> type[_DummyState]:
         return _DummyState
-
     def assignment(self) -> Assignment:
         return Assignment(title="Dummy", summary="test")
 
@@ -91,8 +94,8 @@ def test_register_and_get_scenario() -> None:
 
 
 def test_unknown_module() -> None:
-    with pytest.raises(UnknownModuleError, match="Unknown module 'docker'"):
-        get_scenario("docker", "basic")
+    with pytest.raises(UnknownModuleError, match="Unknown module 'missing-mod'"):
+        get_scenario("missing-mod", "basic")
 
 
 def test_unknown_scenario() -> None:
@@ -119,4 +122,9 @@ def test_bootstrap_registry_registers_builtins_idempotently() -> None:
     bootstrap_registry()
     second = get_scenario("git", "merge-conflict")
     assert first is second
-    assert list_modules() == ["git"]
+    assert "git" in list_modules()
+    assert "docker" in list_modules()
+    assert "kubernetes" in list_modules()
+    assert "feature-branch" in list_scenarios("git")
+    assert "dockerfile-basic" in list_scenarios("docker")
+    assert "deploy-unavailable" in list_scenarios("kubernetes")

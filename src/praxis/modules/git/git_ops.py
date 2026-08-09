@@ -184,3 +184,244 @@ def merge_head_exists(repo_path: Path) -> bool:
         allowed_returncodes={0, 1},
     )
     return result.returncode == 0
+
+
+def add_paths(repo_path: Path, *paths: str) -> None:
+    """Stage specific paths (``git add -- <paths>``)."""
+    if not paths:
+        raise ValueError("add_paths requires at least one path")
+    _git(repo_path, "add", "--", *paths)
+
+
+def show(repo_path: Path, objectish: str) -> str:
+    """Return ``git show`` stdout for ``objectish`` (e.g. ``HEAD:app.py``)."""
+    result = _git(repo_path, "show", objectish)
+    return result.stdout
+
+
+def cat_file_exists(repo_path: Path, objectish: str) -> bool:
+    result = _git(
+        repo_path,
+        "cat-file",
+        "-e",
+        objectish,
+        allowed_returncodes={0, 1},
+    )
+    return result.returncode == 0
+
+
+def rev_parse_verify(repo_path: Path, ref: str) -> str | None:
+    """Return resolved SHA for ``ref``, or None if it does not exist."""
+    result = _git(
+        repo_path,
+        "rev-parse",
+        "-q",
+        "--verify",
+        ref,
+        allowed_returncodes={0, 1},
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def is_ancestor(repo_path: Path, maybe_ancestor: str, descendant: str) -> bool:
+    """True when ``maybe_ancestor`` is an ancestor of ``descendant``."""
+    result = _git(
+        repo_path,
+        "merge-base",
+        "--is-ancestor",
+        maybe_ancestor,
+        descendant,
+        allowed_returncodes={0, 1},
+    )
+    return result.returncode == 0
+
+
+def merge_base(repo_path: Path, a: str, b: str) -> str:
+    result = _git(repo_path, "merge-base", a, b)
+    return result.stdout.strip()
+
+
+def commit_tree_sha(repo_path: Path, ref: str = "HEAD") -> str:
+    """Return the tree OID for ``ref``."""
+    return rev_parse(repo_path, f"{ref}^{{tree}}")
+
+
+def reset(
+    repo_path: Path,
+    target: str,
+    *,
+    mode: str = "mixed",
+) -> None:
+    """Reset HEAD to ``target`` with ``--soft``, ``--mixed``, or ``--hard``."""
+    if mode not in {"soft", "mixed", "hard"}:
+        raise ValueError(f"Unsupported reset mode: {mode}")
+    _git(repo_path, "reset", f"--{mode}", target)
+
+
+def restore(repo_path: Path, *paths: str) -> None:
+    """Restore paths in the working tree from HEAD (``git restore``)."""
+    if not paths:
+        raise ValueError("restore requires at least one path")
+    _git(repo_path, "restore", "--", *paths)
+
+
+def rebase(
+    repo_path: Path,
+    upstream: str,
+    *,
+    allowed_returncodes: set[int] | None = None,
+) -> ProcessResult:
+    return _git(
+        repo_path,
+        "rebase",
+        upstream,
+        allowed_returncodes=allowed_returncodes,
+    )
+
+
+def rebase_continue(
+    repo_path: Path,
+    *,
+    allowed_returncodes: set[int] | None = None,
+) -> ProcessResult:
+    return _git(
+        repo_path,
+        "-c",
+        "core.editor=true",
+        "rebase",
+        "--continue",
+        allowed_returncodes=allowed_returncodes,
+    )
+
+
+def rebase_in_progress(repo_path: Path) -> bool:
+    git_dir = Path(
+        _git(repo_path, "rev-parse", "--git-path", "rebase-merge").stdout.strip()
+    )
+    if not git_dir.is_absolute():
+        git_dir = repo_path / git_dir
+    if git_dir.exists():
+        return True
+    apply_dir = Path(
+        _git(repo_path, "rev-parse", "--git-path", "rebase-apply").stdout.strip()
+    )
+    if not apply_dir.is_absolute():
+        apply_dir = repo_path / apply_dir
+    return apply_dir.exists()
+
+
+def cherry_pick(
+    repo_path: Path,
+    commit: str,
+    *,
+    allowed_returncodes: set[int] | None = None,
+) -> ProcessResult:
+    return _git(
+        repo_path,
+        "cherry-pick",
+        commit,
+        allowed_returncodes=allowed_returncodes,
+    )
+
+
+def stash_push(repo_path: Path, message: str | None = None) -> None:
+    args = ["stash", "push", "-u"]
+    if message:
+        args.extend(["-m", message])
+    _git(repo_path, *args)
+
+
+def stash_pop(repo_path: Path) -> None:
+    _git(repo_path, "stash", "pop")
+
+
+def stash_list(repo_path: Path) -> list[str]:
+    result = _git(repo_path, "stash", "list")
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def init_bare(bare_path: Path) -> None:
+    """Create a bare repository at ``bare_path``."""
+    bare_path.parent.mkdir(parents=True, exist_ok=True)
+    run(["git", "init", "--bare", "-b", "main", str(bare_path)])
+
+
+def remote_add(repo_path: Path, name: str, url: str) -> None:
+    _git(repo_path, "remote", "add", name, url)
+
+
+def remote_set_url(repo_path: Path, name: str, url: str) -> None:
+    _git(repo_path, "remote", "set-url", name, url)
+
+
+def fetch(repo_path: Path, remote: str = "origin") -> None:
+    _git(repo_path, "fetch", remote)
+
+
+def pull(
+    repo_path: Path,
+    remote: str = "origin",
+    branch: str = "main",
+    *,
+    ff_only: bool = False,
+    allowed_returncodes: set[int] | None = None,
+) -> ProcessResult:
+    args = ["pull"]
+    if ff_only:
+        args.append("--ff-only")
+    args.extend([remote, branch])
+    return _git(repo_path, *args, allowed_returncodes=allowed_returncodes)
+
+
+def push(
+    repo_path: Path,
+    remote: str = "origin",
+    refspec: str = "main",
+    *,
+    set_upstream: bool = False,
+) -> None:
+    args = ["push"]
+    if set_upstream:
+        args.append("-u")
+    args.extend([remote, refspec])
+    _git(repo_path, *args)
+
+
+def branch_upstream(repo_path: Path, branch: str = "main") -> str | None:
+    result = _git(
+        repo_path,
+        "rev-parse",
+        "--abbrev-ref",
+        f"{branch}@{{upstream}}",
+        allowed_returncodes={0, 1},
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def set_upstream(repo_path: Path, branch: str, upstream: str) -> None:
+    """Set ``branch`` to track ``upstream`` (e.g. ``origin/main``)."""
+    _git(repo_path, "branch", f"--set-upstream-to={upstream}", branch)
+
+
+def delete_branch(repo_path: Path, name: str, *, force: bool = False) -> None:
+    flag = "-D" if force else "-d"
+    _git(repo_path, "branch", flag, name)
+
+
+def reflog(repo_path: Path, ref: str = "HEAD", *, max_count: int = 20) -> list[str]:
+    result = _git(repo_path, "reflog", ref, f"-n{max_count}")
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def rev_list(repo_path: Path, *args: str) -> list[str]:
+    result = _git(repo_path, "rev-list", *args)
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def clone(url: str, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    run(["git", "clone", url, str(destination)])

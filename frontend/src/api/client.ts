@@ -35,6 +35,7 @@ export type ScenarioInfo = {
   title: string;
   description: string;
   difficulty: string | null;
+  concepts?: string[];
 };
 
 export type Catalog = {

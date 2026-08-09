@@ -61,8 +61,13 @@ def test_catalog_requires_token(client: TestClient, security: AppSecurity) -> No
     ok = client.get("/api/catalog", headers=_auth(security))
     assert ok.status_code == 200
     body = ok.json()
-    assert body["modules"][0]["id"] == "git"
-    assert any(s["id"] == "merge-conflict" for s in body["modules"][0]["scenarios"])
+    module_ids = [m["id"] for m in body["modules"]]
+    assert "git" in module_ids
+    assert "docker" in module_ids
+    assert "kubernetes" in module_ids
+    git = next(m for m in body["modules"] if m["id"] == "git")
+    assert any(s["id"] == "merge-conflict" for s in git["scenarios"])
+    assert any(s.get("concepts") for s in git["scenarios"])
 
 
 def test_rejects_untrusted_origin(client: TestClient, security: AppSecurity) -> None:
@@ -144,10 +149,12 @@ def test_catalog_includes_presentation_metadata(
 ) -> None:
     response = client.get("/api/catalog", headers=_auth(security))
     assert response.status_code == 200
-    scenario = response.json()["modules"][0]["scenarios"][0]
+    git = next(m for m in response.json()["modules"] if m["id"] == "git")
+    scenario = next(s for s in git["scenarios"] if s["id"] == "merge-conflict")
     assert scenario["title"]
     assert scenario["description"]
     assert scenario["difficulty"] == "beginner"
+    assert "merge" in scenario["concepts"]
 
 
 def test_start_success_persists_and_activates(
@@ -182,7 +189,7 @@ def test_start_unknown_module_and_scenario(
     unknown_module = client.post(
         "/api/session/start",
         headers=_auth(security),
-        json={"module": "docker", "scenario": "basic"},
+        json={"module": "missing-mod", "scenario": "basic"},
     )
     assert unknown_module.status_code == 404
     assert unknown_module.json()["code"] == "unknown_module"

@@ -14,6 +14,7 @@ class ScenarioInfo(BaseModel):
     title: str
     description: str
     difficulty: str | None = None
+    concepts: list[str] = Field(default_factory=list)
 
 
 class ModuleInfo(BaseModel):

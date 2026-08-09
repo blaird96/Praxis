@@ -1,1 +1,1 @@
-"""Training modules (git, and later docker/kubernetes/...)."""
+"""Training modules (git, docker, kubernetes, ...)."""

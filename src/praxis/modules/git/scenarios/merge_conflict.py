@@ -78,6 +78,7 @@ class MergeConflictScenario:
         "into a real two-parent merge commit."
     )
     difficulty: str | None = "beginner"
+    concepts: list[str] = ["merge", "conflict-resolution", "merge-commit"]
     state_model: type[MergeConflictState] = MergeConflictState
 
     def assignment(self) -> Assignment:
