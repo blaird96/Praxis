@@ -164,7 +164,12 @@ def test_sha_and_parent_helpers_after_successful_merge(repo: Path, hooks: Path) 
     git_ops.add_all(repo)
     main_tip = git_ops.commit(repo, "main")
 
-    result = git_ops.merge(repo, "feature", allowed_returncodes={0})
+    result = git_ops.merge(
+        repo,
+        "feature",
+        no_edit=True,
+        allowed_returncodes={0},
+    )
     assert result.returncode == 0
     assert not git_ops.merge_head_exists(repo)
     assert not git_ops.has_unmerged_paths(repo)

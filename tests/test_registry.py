@@ -11,6 +11,7 @@ from praxis.errors import UnknownModuleError, UnknownScenarioError
 from praxis.models import Assignment, CheckResult, ObjectiveResult
 from praxis.modules.base import Scenario
 from praxis.registry import (
+    bootstrap_registry,
     clear_registry,
     get_scenario,
     list_modules,
@@ -39,6 +40,10 @@ class _DummyScenario:
     @property
     def title(self) -> str:
         return "Dummy"
+
+    @property
+    def state_model(self) -> type[_DummyState]:
+        return _DummyState
 
     def assignment(self) -> Assignment:
         return Assignment(title="Dummy", summary="test")
@@ -97,3 +102,13 @@ def test_duplicate_registration_rejected() -> None:
 def test_list_scenarios_unknown_module() -> None:
     with pytest.raises(UnknownModuleError):
         list_scenarios("missing")
+
+
+def test_bootstrap_registry_registers_builtins_idempotently() -> None:
+    clear_registry()
+    bootstrap_registry()
+    first = get_scenario("git", "merge-conflict")
+    bootstrap_registry()
+    second = get_scenario("git", "merge-conflict")
+    assert first is second
+    assert list_modules() == ["git"]

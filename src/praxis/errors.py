@@ -54,3 +54,11 @@ class UnknownModuleError(PraxisError):
 
 class UnknownScenarioError(PraxisError):
     """Requested scenario is not registered for its module."""
+
+
+class ScenarioSetupError(PraxisError):
+    """Scenario setup failed to establish or verify the expected starting state."""
+
+
+class ScenarioStateError(PraxisError):
+    """Persisted scenario state is missing or cannot be rehydrated."""

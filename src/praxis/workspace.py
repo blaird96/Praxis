@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import stat
 import uuid
 from pathlib import Path
 
@@ -87,6 +89,20 @@ def assert_safe_repo_path(workspace: Path, repo_path: Path) -> Path:
     return resolved
 
 
+def _rmtree(path: Path) -> None:
+    """Remove a directory tree, clearing read-only bits (common on Windows/.git)."""
+
+    def _onexc(func: object, path_str: str, exc: BaseException) -> None:
+        try:
+            os.chmod(path_str, stat.S_IWRITE)
+            if callable(func):
+                func(path_str)
+        except OSError as retry_exc:
+            raise exc from retry_exc
+
+    shutil.rmtree(path, onexc=_onexc)
+
+
 def reset_repo(workspace: Path, repo_path: Path | None = None) -> Path:
     """Delete and recreate the exercise repo directory after safety checks."""
     workspace_resolved = workspace.resolve()
@@ -96,7 +112,7 @@ def reset_repo(workspace: Path, repo_path: Path | None = None) -> Path:
     )
 
     if target.exists():
-        shutil.rmtree(target)
+        _rmtree(target)
 
     target.mkdir(parents=True, exist_ok=False)
     return target
@@ -122,4 +138,4 @@ def remove_workspace(workspace: Path, *, home: Path | None = None) -> None:
         )
 
     if workspace_resolved.exists():
-        shutil.rmtree(workspace_resolved)
+        _rmtree(workspace_resolved)

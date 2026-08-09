@@ -91,18 +91,25 @@ def merge(
     repo_path: Path,
     branch: str,
     *,
+    no_ff: bool = False,
+    no_edit: bool = False,
     allowed_returncodes: set[int] | None = None,
 ) -> ProcessResult:
     """Merge ``branch`` into HEAD.
 
-    Callers expecting conflicts should pass ``allowed_returncodes={0, 1}``.
+    Defaults stay close to ordinary ``git merge``. Callers expecting conflicts
+    should pass ``allowed_returncodes={0, 1}``. Non-interactive lab setup should
+    pass ``no_edit=True`` explicitly when a merge commit message would be needed.
     """
+    args = ["merge"]
+    if no_ff:
+        args.append("--no-ff")
+    if no_edit:
+        args.append("--no-edit")
+    args.append(branch)
     return _git(
         repo_path,
-        "merge",
-        "--no-ff",
-        "--no-edit",
-        branch,
+        *args,
         allowed_returncodes=allowed_returncodes,
     )
 

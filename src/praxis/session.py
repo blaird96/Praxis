@@ -9,7 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from praxis.errors import SessionNotFoundError
+from praxis.errors import ScenarioStateError, SessionNotFoundError
 from praxis.models import Session, SessionStatus
 from praxis.paths import (
     ensure_praxis_home,
@@ -81,7 +81,12 @@ def load_scenario_state(workspace: Path) -> dict[str, Any] | None:
     path = scenario_state_file(workspace)
     if not path.exists():
         return None
-    return _read_json(path)
+    try:
+        return _read_json(path)
+    except json.JSONDecodeError as exc:
+        raise ScenarioStateError(
+            f"Scenario state file is not valid JSON: {path}"
+        ) from exc
 
 
 def begin_session(
@@ -116,20 +121,34 @@ def activate_session(
 ) -> Session:
     """Persist finalized session metadata and set the global active pointer."""
     root = ensure_praxis_home(home)
+    session = persist_session_outcome(session, scenario_state=scenario_state)
+    state = load_global_state(root)
+    state.active_session_id = session.session_id
+    save_global_state(state, root)
+    return session
+
+
+def persist_session_outcome(
+    session: Session,
+    *,
+    scenario_state: dict[str, Any] | None = None,
+) -> Session:
+    """Persist session + scenario state without changing the active pointer.
+
+    Used by reset so retained non-active workspaces are not promoted.
+    """
     workspace = Path(session.workspace_path).resolve()
 
     if scenario_state is not None:
         save_scenario_state(workspace, scenario_state)
         session.scenario_state = scenario_state
 
-    session.status = SessionStatus.ACTIVE
+    if session.status == SessionStatus.PROVISIONAL:
+        session.status = SessionStatus.ACTIVE
+
     session.workspace_path = workspace
     session.repo_path = repo_dir(workspace).resolve()
     save_session(session)
-
-    state = load_global_state(root)
-    state.active_session_id = session.session_id
-    save_global_state(state, root)
     return session
 
 

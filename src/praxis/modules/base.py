@@ -9,11 +9,11 @@ from pydantic import BaseModel
 
 from praxis.models import Assignment, CheckResult
 
-ScenarioState = TypeVar("ScenarioState", bound=BaseModel)
+StateT = TypeVar("StateT", bound=BaseModel)
 
 
 @runtime_checkable
-class Scenario(Protocol[ScenarioState]):
+class Scenario(Protocol[StateT]):
     """Deterministic lab scenario: setup → user work → validate."""
 
     @property
@@ -28,11 +28,18 @@ class Scenario(Protocol[ScenarioState]):
     def title(self) -> str:
         """Short human-readable title."""
 
+    @property
+    def state_model(self) -> type[StateT]:
+        """Pydantic model used to rehydrate persisted setup state."""
+
     def assignment(self) -> Assignment:
         """Return the learner-facing assignment (end state, not a command recipe)."""
 
-    def setup(self, repo_path: Path) -> ScenarioState:
-        """Construct the lab environment; return immutable setup state."""
+    def setup(self, repo_path: Path) -> StateT:
+        """Construct the lab environment; return immutable setup state.
 
-    def validate(self, repo_path: Path, state: ScenarioState) -> CheckResult:
+        A successful return means setup postconditions have already been verified.
+        """
+
+    def validate(self, repo_path: Path, state: StateT) -> CheckResult:
         """Deterministically check whether objectives are satisfied."""
