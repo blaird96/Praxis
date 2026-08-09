@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from praxis.errors import ScenarioStateError
+from praxis.errors import ScenarioStateError, SessionNotFoundError
 from praxis.models import Assignment, CheckResult, Session
 from praxis.registry import bootstrap_registry, get_scenario
 from praxis.session import (
@@ -16,6 +16,7 @@ from praxis.session import (
     abandon_provisional_session,
     activate_session,
     begin_session,
+    load_active_session,
     load_global_state,
     load_scenario_state,
     persist_session_outcome,
@@ -114,9 +115,39 @@ def check(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> CheckOutcome:
+    """Validate using hybrid session discovery (CLI)."""
     bootstrap_registry()
     resolved = resolve_session(cwd=cwd, home=home)
-    session = resolved.session
+    return _validate_session(resolved.session)
+
+
+def check_active(*, home: Path | None = None) -> CheckOutcome:
+    """Validate the globally active session (web/app; ignores process cwd)."""
+    bootstrap_registry()
+    session = require_active_session(home=home)
+    return _validate_session(session)
+
+
+def require_active_session(*, home: Path | None = None) -> Session:
+    """Return the active session or raise ``SessionNotFoundError``."""
+    session = load_active_session(home)
+    if session is None:
+        raise SessionNotFoundError(
+            "No active Praxis session. Start one with "
+            "`praxis start <module> --scenario <id>` or the Praxis app."
+        )
+    return session
+
+
+def active_assignment(*, home: Path | None = None) -> Assignment:
+    """Assignment for the active session's scenario."""
+    bootstrap_registry()
+    session = require_active_session(home=home)
+    scenario = get_scenario(session.module, session.scenario)
+    return scenario.assignment()
+
+
+def _validate_session(session: Session) -> CheckOutcome:
     scenario = get_scenario(session.module, session.scenario)
     state = _load_typed_state(session, scenario)
     result = scenario.validate(Path(session.repo_path), state)
@@ -131,15 +162,23 @@ def reset(
     """Recreate the exercise repo and re-run setup; do not change active pointer."""
     bootstrap_registry()
     resolved = resolve_session(cwd=cwd, home=home)
-    session = resolved.session
-    scenario = get_scenario(session.module, session.scenario)
+    return _reset_session(resolved.session)
 
+
+def reset_active(*, home: Path | None = None) -> ResetResult:
+    """Reset the globally active session (web/app; ignores process cwd)."""
+    bootstrap_registry()
+    session = require_active_session(home=home)
+    return _reset_session(session)
+
+
+def _reset_session(session: Session) -> ResetResult:
+    scenario = get_scenario(session.module, session.scenario)
     workspace = Path(session.workspace_path)
     repo_path = reset_repo(workspace, Path(session.repo_path))
     state = scenario.setup(repo_path)
     state_data = state.model_dump(mode="json")
     session = persist_session_outcome(session, scenario_state=state_data)
-
     return ResetResult(
         session=session,
         assignment=scenario.assignment(),

@@ -42,6 +42,14 @@ class _DummyScenario:
         return "Dummy"
 
     @property
+    def description(self) -> str:
+        return "Dummy scenario for registry tests"
+
+    @property
+    def difficulty(self) -> str | None:
+        return None
+
+    @property
     def state_model(self) -> type[_DummyState]:
         return _DummyState
 

@@ -29,6 +29,14 @@ class Scenario(Protocol[StateT]):
         """Short human-readable title."""
 
     @property
+    def description(self) -> str:
+        """Short catalog description for the graphical home screen."""
+
+    @property
+    def difficulty(self) -> str | None:
+        """Optional difficulty label (e.g. beginner); None if unset."""
+
+    @property
     def state_model(self) -> type[StateT]:
         """Pydantic model used to rehydrate persisted setup state."""
 

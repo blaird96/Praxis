@@ -185,11 +185,96 @@ def status_cmd() -> None:
 
 @app.command("ui")
 def ui_cmd() -> None:
-    """Launch the interactive Praxis TUI."""
+    """Launch the interactive Praxis TUI (deprecated; use `praxis app`)."""
+    console.print(
+        "[yellow]Warning:[/yellow] `praxis ui` is deprecated and will be removed. "
+        "Prefer [bold]praxis app[/bold] for the local web GUI."
+    )
     try:
         from praxis.ui.app import run_ui
 
         run_ui()
+    except PraxisError as exc:
+        _handle_praxis_error(exc)
+    except Exception as exc:
+        _handle_unexpected(exc)
+
+
+@app.command("app")
+def app_cmd(
+    host: str = typer.Option(
+        "127.0.0.1",
+        help="Bind address (localhost only).",
+    ),
+    port: int = typer.Option(8765, help="Local port."),
+    open_browser: bool = typer.Option(
+        True,
+        "--open/--no-open",
+        help="Open the default browser after start.",
+    ),
+    reload: bool = typer.Option(
+        False,
+        help="Dev auto-reload for the API process.",
+    ),
+    dev: bool = typer.Option(
+        False,
+        "--dev",
+        help=(
+            "Open the Vite dev origin (http://127.0.0.1:5173) with this launch's "
+            "capability token. Run `npm run dev` in frontend/ separately."
+        ),
+    ),
+) -> None:
+    """Launch the local Praxis web application (API + UI)."""
+    if host not in {"127.0.0.1", "localhost"}:
+        error_console.print(
+            "[red]Error:[/red] praxis app may only bind to 127.0.0.1 or localhost."
+        )
+        raise typer.Exit(code=ExitCode.ERROR)
+
+    try:
+        import webbrowser
+
+        import uvicorn
+
+        from praxis.api.app import app_public_url, vite_dev_url
+        from praxis.api.security import AppSecurity
+    except Exception as exc:
+        _handle_unexpected(exc)
+
+    bind_host = "127.0.0.1"
+    security = AppSecurity.create(host=bind_host, port=port)
+    os.environ["PRAXIS_APP_TOKEN"] = security.token
+    os.environ["PRAXIS_APP_PORT"] = str(port)
+    os.environ["PRAXIS_APP_HOST"] = bind_host
+
+    console.print(f"[green]Praxis app[/green] listening on http://{bind_host}:{port}")
+    console.print(
+        "Capability token is placed in the URL fragment (#token=…) and held "
+        "in browser memory only (local process authorization, not a user login)."
+    )
+    if open_browser:
+        if dev:
+            console.print(
+                "[cyan]Dev mode:[/cyan] opening Vite origin. "
+                "In another terminal: [bold]cd frontend && npm run dev[/bold]"
+            )
+            webbrowser.open(vite_dev_url(security))
+        else:
+            webbrowser.open(app_public_url(security))
+
+    try:
+        if reload:
+            uvicorn.run(
+                "praxis.api.asgi:app",
+                host=bind_host,
+                port=port,
+                reload=True,
+            )
+        else:
+            from praxis.api.asgi import build_app
+
+            uvicorn.run(build_app(), host=bind_host, port=port, reload=False)
     except PraxisError as exc:
         _handle_praxis_error(exc)
     except Exception as exc:

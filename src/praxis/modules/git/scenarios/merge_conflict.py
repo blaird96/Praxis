@@ -73,6 +73,11 @@ class MergeConflictScenario:
     id: str = "merge-conflict"
     module: str = "git"
     title: str = "Resolve a merge conflict"
+    description: str = (
+        "Finish an in-progress merge on main by resolving a conflicted file "
+        "into a real two-parent merge commit."
+    )
+    difficulty: str | None = "beginner"
     state_model: type[MergeConflictState] = MergeConflictState
 
     def assignment(self) -> Assignment:

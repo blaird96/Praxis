@@ -1,0 +1,306 @@
+:root {
+  color: #1c1917;
+  background: #f5f5f4;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.app-shell.workbench-shell {
+  max-width: none;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem 1rem;
+}
+
+header.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #d6d3d1;
+  padding-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+header.app-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.panel.info {
+  border-color: #a8a29e;
+  background: #fafaf9;
+}
+
+.catalog-module {
+  margin-top: 1rem;
+}
+
+.catalog-module h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.catalog-scenario {
+  border-top: 1px solid #e7e5e4;
+  padding: 0.75rem 0;
+}
+
+.catalog-scenario h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.muted {
+  color: #78716c;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  flex-wrap: wrap;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #a8a29e;
+  background: #fff;
+  border-radius: 4px;
+  padding: 0.4rem 0.75rem;
+}
+
+button.primary {
+  background: #1c1917;
+  color: #fafaf9;
+  border-color: #1c1917;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.objective {
+  display: grid;
+  grid-template-columns: 4rem 1fr;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f5f5f4;
+}
+
+.objective:last-child {
+  border-bottom: none;
+}
+
+.badge-pass {
+  color: #166534;
+  font-weight: 600;
+}
+
+.badge-fail {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.error {
+  color: #b91c1c;
+  white-space: pre-wrap;
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.workbench {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workbench-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-actions {
+  margin: 0;
+}
+
+.toolbar-meta {
+  font-size: 0.9rem;
+}
+
+.assignment-details {
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 6px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.95rem;
+}
+
+.assignment-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.workbench-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(11rem, 16%) minmax(0, 1fr) minmax(12rem, 22%);
+  gap: 0.65rem;
+}
+
+.workbench-grid > .panel {
+  margin-bottom: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.workbench-editor {
+  padding: 0.5rem 0.65rem 0.65rem;
+}
+
+.editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  flex-shrink: 0;
+}
+
+.editor-toolbar .actions {
+  margin: 0;
+}
+
+.editor-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.dirty-dot {
+  color: #b45309;
+}
+
+.monaco-wrap {
+  flex: 1;
+  min-height: 280px;
+  border: 1px solid #e7e5e4;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.editor-placeholder {
+  margin: 1rem 0;
+}
+
+.save-toast {
+  color: #166534;
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.file-tree h2 {
+  margin-top: 0;
+}
+
+.file-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.file-tree-list ul {
+  list-style: none;
+  margin: 0;
+}
+
+.file-tree-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.2rem 0.35rem;
+  border-radius: 3px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.file-tree-item.file.selected,
+.file-tree-item:hover {
+  background: #e7e5e4;
+}
+
+.file-tree-item.symlink {
+  cursor: default;
+}
+
+.tree-twist {
+  display: inline-block;
+  width: 1rem;
+}
+
+.tree-msg {
+  padding-left: 1rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .workbench-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(16rem, 1fr) auto;
+  }
+
+  .app-shell.workbench-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+}
