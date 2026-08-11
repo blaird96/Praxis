@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentType } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,31 +6,115 @@ import App from "./App";
 import * as client from "./api/client";
 import { setCapabilityTokenForTests } from "./api/token";
 
-// react-resizable-panels relies on real layout (getBoundingClientRect) to
-// resolve pointer hit-testing for its drag handles. jsdom has no layout engine
-// (every element reports a 0x0 rect), which makes the handles think every
-// click/keyboard interaction anywhere in the tree is targeting them. Mock the
-// library with plain passthrough containers, same approach already used below
-// for Monaco (FileEditor) and xterm (TerminalPane).
-vi.mock("react-resizable-panels", () => ({
-  PanelGroup: ({
-    children,
-    className,
+// Dockview relies on real layout (ResizeObserver, getBoundingClientRect) to
+// size and position groups, none of which jsdom implements. Mock it with a
+// minimal fake DockviewApi (in-memory panel map backing addPanel/removePanel/
+// getPanel/toJSON/fromJSON/onDidLayoutChange) that renders every currently
+// "present" panel's real component in a plain list, so existing interaction
+// tests (file tree, editor save/conflict, check, reset, terminal) keep
+// working against real content without needing real drag/drop.
+vi.mock("dockview-react", async () => {
+  const React = await import("react");
+
+  function createFakeDockviewApi() {
+    const panels = new Map<
+      string,
+      { id: string; component: string; title?: string }
+    >();
+    const listeners = new Set<() => void>();
+    const fire = () => listeners.forEach((listener) => listener());
+
+    return {
+      get panels() {
+        return Array.from(panels.values());
+      },
+      getPanel(id: string) {
+        return panels.get(id);
+      },
+      addPanel(options: { id: string; component: string; title?: string }) {
+        const panel = {
+          id: options.id,
+          component: options.component,
+          title: options.title,
+        };
+        panels.set(options.id, panel);
+        fire();
+        return panel;
+      },
+      removePanel(panel: { id: string } | string) {
+        const id = typeof panel === "string" ? panel : panel.id;
+        panels.delete(id);
+        fire();
+      },
+      clear() {
+        panels.clear();
+        fire();
+      },
+      toJSON() {
+        return { panels: Array.from(panels.values()) };
+      },
+      fromJSON(data: {
+        panels?: { id: string; component: string; title?: string }[];
+      }) {
+        panels.clear();
+        for (const panel of data.panels ?? []) panels.set(panel.id, panel);
+        fire();
+      },
+      onDidLayoutChange(listener: () => void) {
+        listeners.add(listener);
+        return { dispose: () => listeners.delete(listener) };
+      },
+    };
+  }
+
+  function DockviewReact({
+    components,
+    onReady,
   }: {
-    children: ReactNode;
-    className?: string;
-  }) => <div className={className}>{children}</div>,
-  Panel: ({
-    children,
-    className,
-  }: {
-    children: ReactNode;
-    className?: string;
-  }) => <div className={className}>{children}</div>,
-  PanelResizeHandle: ({ className }: { className?: string }) => (
-    <div className={className} />
-  ),
-}));
+    components: Record<string, ComponentType<Record<string, unknown>>>;
+    onReady: (event: { api: ReturnType<typeof createFakeDockviewApi> }) => void;
+  }) {
+    const apiRef = React.useRef<ReturnType<typeof createFakeDockviewApi> | null>(
+      null,
+    );
+    const [, setTick] = React.useState(0);
+    if (!apiRef.current) {
+      apiRef.current = createFakeDockviewApi();
+    }
+
+    React.useEffect(() => {
+      const api = apiRef.current;
+      if (!api) return;
+      const disposable = api.onDidLayoutChange(() => setTick((t) => t + 1));
+      onReady({ api });
+      return () => {
+        disposable.dispose();
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const api = apiRef.current;
+    return (
+      <div data-testid="dockview-mock">
+        {api.panels.map((panel) => {
+          const Component = components[panel.component];
+          if (!Component) return null;
+          return (
+            <div key={panel.id} data-testid={`dockview-panel-${panel.id}`}>
+              <Component
+                api={{} as never}
+                containerApi={api as never}
+                params={{}}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return { DockviewReact };
+});
 
 vi.mock("./components/FileEditor", () => ({
   FileEditor: ({
@@ -142,6 +226,7 @@ describe("App start flow", () => {
     setCapabilityTokenForTests("test-token");
     vi.restoreAllMocks();
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.localStorage.clear();
   });
 
   it("renders catalog when there is no active session", async () => {
@@ -227,6 +312,7 @@ describe("Workbench file editing", () => {
     setCapabilityTokenForTests("test-token");
     vi.restoreAllMocks();
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.localStorage.clear();
     vi.spyOn(client, "fetchCatalog").mockResolvedValue(catalog);
     vi.spyOn(client, "fetchSession").mockResolvedValue(session);
     vi.spyOn(client, "listFiles").mockResolvedValue(rootListing);
@@ -429,8 +515,58 @@ describe("Workbench file editing", () => {
 
     render(<App />);
     await screen.findByTestId("session-dashboard");
-    await user.click(screen.getByTestId("check-button"));
+    await user.click(await screen.findByTestId("check-button"));
     await waitFor(() => expect(check).toHaveBeenCalled());
     expect(await screen.findByText("No conflict markers")).toBeInTheDocument();
+  });
+});
+
+describe("Workbench layout persistence", () => {
+  beforeEach(() => {
+    setCapabilityTokenForTests("test-token");
+    vi.restoreAllMocks();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.localStorage.clear();
+    vi.spyOn(client, "fetchCatalog").mockResolvedValue(catalog);
+    vi.spyOn(client, "fetchSession").mockResolvedValue(session);
+    vi.spyOn(client, "listFiles").mockResolvedValue(rootListing);
+  });
+
+  it("hiding a pane persists across a reload, and Reset Layout restores it", async () => {
+    const user = userEvent.setup();
+
+    const { unmount } = render(<App />);
+    await screen.findByTestId("session-dashboard");
+    expect(await screen.findByTestId("dockview-panel-coach")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("sidebar-toggle-coach"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("dockview-panel-coach")).not.toBeInTheDocument();
+    });
+
+    // The layout save is debounced; wait for it to land in localStorage
+    // before simulating a reload.
+    await waitFor(
+      () => {
+        const saved = window.localStorage.getItem(
+          "praxis-workbench-layout-v1",
+        );
+        expect(saved).not.toBeNull();
+        expect(saved).not.toContain('"coach"');
+      },
+      { timeout: 2000 },
+    );
+
+    unmount();
+
+    render(<App />);
+    await screen.findByTestId("session-dashboard");
+    expect(await screen.findByTestId("dockview-panel-files")).toBeInTheDocument();
+    expect(screen.queryByTestId("dockview-panel-coach")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("sidebar-reset-layout"));
+    await waitFor(() => {
+      expect(screen.getByTestId("dockview-panel-coach")).toBeInTheDocument();
+    });
   });
 });
