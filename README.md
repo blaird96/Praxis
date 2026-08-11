@@ -27,7 +27,7 @@ uv sync
 uv run praxis app
 ```
 
-Capability token stays in the URL fragment (`#token=…`) for REST. The embedded terminal uses a short-lived, single-use ticket from `POST /api/terminal/ticket` and connects to `ws://…/ws/terminal?ticket=…` (never puts the capability token in the WebSocket URL).
+Capability token arrives once in the URL fragment (`#token=…`), then is held in memory and mirrored to tab-scoped `sessionStorage` (never localStorage/cookies/query string) so a page reload doesn't strand the tab without credentials; the fragment itself is stripped from the visible URL immediately. The embedded terminal uses a short-lived, single-use ticket from `POST /api/terminal/ticket` and connects to `ws://…/ws/terminal?ticket=…` (never puts the capability token in the WebSocket URL).
 
 Workbench: file tree + Monaco + objectives + xterm.js over a real PTY/ConPTY shell in the exercise repo.
 

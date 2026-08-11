@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import keyring.errors
 import pytest
 from fastapi.testclient import TestClient
 
@@ -29,6 +30,34 @@ def _registry(praxis_home: Path) -> None:
 def _no_real_openai_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     """Guard against accidentally hitting the real network in this file."""
     monkeypatch.delenv(secrets_store.ENV_VAR, raising=False)
+
+
+class _FakeKeyring:
+    """In-memory stand-in for the `keyring` module's password functions."""
+
+    def __init__(self) -> None:
+        self._passwords: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service: str, username: str) -> str | None:
+        return self._passwords.get((service, username))
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        self._passwords[(service, username)] = password
+
+    def delete_password(self, service: str, username: str) -> None:
+        key = (service, username)
+        if key not in self._passwords:
+            raise keyring.errors.PasswordDeleteError("not found")
+        del self._passwords[key]
+
+
+@pytest.fixture(autouse=True)
+def _isolated_keyring(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never read/write the developer's real OS credential store from tests."""
+    fake = _FakeKeyring()
+    monkeypatch.setattr(secrets_store.keyring, "get_password", fake.get_password)
+    monkeypatch.setattr(secrets_store.keyring, "set_password", fake.set_password)
+    monkeypatch.setattr(secrets_store.keyring, "delete_password", fake.delete_password)
 
 
 @pytest.fixture
