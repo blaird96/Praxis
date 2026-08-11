@@ -47,6 +47,17 @@ header.app-header h1 {
   letter-spacing: 0.02em;
 }
 
+header.app-header .muted {
+  flex: 1;
+  margin-left: 0.6rem;
+}
+
+.settings-button {
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+}
+
 .panel {
   background: #fff;
   border: 1px solid #d6d3d1;
@@ -137,6 +148,11 @@ button:disabled {
   font-weight: 600;
 }
 
+.badge-completed {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 .error {
   color: #b91c1c;
   white-space: pre-wrap;
@@ -194,20 +210,79 @@ button:disabled {
   font-weight: 600;
 }
 
-.workbench-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(11rem, 16%) minmax(0, 1fr) minmax(12rem, 22%);
-  gap: 0.65rem;
+.assignment-details p:first-of-type {
+  margin-top: 0.5rem;
 }
 
-.workbench-grid > .panel {
+.assignment-details li p {
+  margin: 0;
+  display: inline;
+}
+
+.assignment-details code,
+.workbench-coach code {
+  background: #f0efee;
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.9em;
+}
+
+.workbench-rows {
+  flex: 1;
+  min-height: 0;
+}
+
+.workbench-row {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.workbench-grid {
+  height: 100%;
+}
+
+.workbench-col {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.workbench-files,
+.workbench-editor,
+.workbench-objectives,
+.workbench-coach {
   margin-bottom: 0;
   min-height: 0;
+  height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   overflow: auto;
+}
+
+.resize-handle {
+  flex-shrink: 0;
+  background: #d6d3d1;
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.resize-handle:hover,
+.resize-handle[data-resize-handle-active] {
+  background: #a8a29e;
+}
+
+.resize-handle-vertical {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.resize-handle-horizontal {
+  height: 6px;
+  cursor: row-resize;
 }
 
 .workbench-editor {
@@ -260,6 +335,54 @@ button:disabled {
   margin-top: 0;
 }
 
+.file-tree-toolbar {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.file-tree-toolbar button {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.file-tree-target {
+  font-size: 0.82rem;
+  margin: 0 0 0.5rem;
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+
+.file-tree-create-form {
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.file-tree-create-form input {
+  font: inherit;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #a8a29e;
+  border-radius: 4px;
+}
+
+.file-tree-create-form .actions {
+  margin: 0;
+}
+
 .file-tree-list {
   list-style: none;
   margin: 0;
@@ -303,9 +426,8 @@ button:disabled {
 }
 
 .terminal-pane {
-  flex: 0 0 28%;
-  min-height: 10rem;
-  max-height: 40%;
+  height: 100%;
+  width: 100%;
   margin-bottom: 0;
   display: flex;
   flex-direction: column;
@@ -351,17 +473,108 @@ button:disabled {
   padding: 0.25rem;
 }
 
+.workbench-coach {
+  padding: 0.5rem 0.65rem 0.65rem;
+}
+
+.coach-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.coach-message {
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.92rem;
+}
+
+.coach-message p {
+  margin: 0.25rem 0;
+}
+
+.coach-message-user {
+  background: #e7e5e4;
+  align-self: flex-end;
+  max-width: 92%;
+}
+
+.coach-message-assistant {
+  background: #f0efee;
+  align-self: flex-start;
+  max-width: 92%;
+}
+
+.coach-input-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  flex-shrink: 0;
+}
+
+.coach-input-row input {
+  flex: 1;
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #a8a29e;
+  border-radius: 4px;
+}
+
+.coach-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding-top: 0.5rem;
+}
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 23, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.settings-dialog {
+  width: min(560px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.settings-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-form input {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #a8a29e;
+  border-radius: 4px;
+}
+
 @media (max-width: 900px) {
-  .workbench-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(12rem, 1fr) auto;
-  }
-
-  .terminal-pane {
-    flex-basis: 14rem;
-    max-height: none;
-  }
-
   .app-shell.workbench-shell {
     height: auto;
     min-height: 100vh;

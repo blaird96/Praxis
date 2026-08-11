@@ -68,6 +68,8 @@ def test_catalog_requires_token(client: TestClient, security: AppSecurity) -> No
     git = next(m for m in body["modules"] if m["id"] == "git")
     assert any(s["id"] == "merge-conflict" for s in git["scenarios"])
     assert any(s.get("concepts") for s in git["scenarios"])
+    k8s = next(m for m in body["modules"] if m["id"] == "kubernetes")
+    assert "available" in k8s
 
 
 def test_rejects_untrusted_origin(client: TestClient, security: AppSecurity) -> None:
@@ -155,6 +157,25 @@ def test_catalog_includes_presentation_metadata(
     assert scenario["description"]
     assert scenario["difficulty"] == "beginner"
     assert "merge" in scenario["concepts"]
+    assert scenario["completed"] is False
+
+
+def test_catalog_completed_flag_toggles_after_a_passing_check(
+    client: TestClient, security: AppSecurity, praxis_home: Path
+) -> None:
+    from praxis.progress import record_check_result
+
+    before = client.get("/api/catalog", headers=_auth(security))
+    git = next(m for m in before.json()["modules"] if m["id"] == "git")
+    scenario = next(s for s in git["scenarios"] if s["id"] == "merge-conflict")
+    assert scenario["completed"] is False
+
+    record_check_result("git", "merge-conflict", True, home=praxis_home)
+
+    after = client.get("/api/catalog", headers=_auth(security))
+    git = next(m for m in after.json()["modules"] if m["id"] == "git")
+    scenario = next(s for s in git["scenarios"] if s["id"] == "merge-conflict")
+    assert scenario["completed"] is True
 
 
 def test_start_success_persists_and_activates(

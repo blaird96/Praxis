@@ -9,6 +9,7 @@ from praxis.api.filesystem import (
     DirectoryRequiredError,
     EditorFileTooLargeError,
     FileConflictError,
+    PathConflictError,
     PathRejectedError,
     UnsupportedTextError,
 )
@@ -68,6 +69,13 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=409,
             content={"detail": exc.message, "code": "file_conflict"},
+        )
+
+    @app.exception_handler(PathConflictError)
+    async def _path_conflict(_request: Request, exc: PathConflictError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={"detail": exc.message, "code": "path_conflict"},
         )
 
     @app.exception_handler(UnsupportedTextError)

@@ -282,6 +282,111 @@ def test_files_require_active_session_and_security(
     assert bad_origin.status_code == 403
 
 
+def test_create_file_happy_path_and_reads_back(
+    client: TestClient, security: AppSecurity, started: dict
+) -> None:
+    created = client.post(
+        "/api/session/file",
+        headers=_auth(security),
+        json={"path": "notes/todo.txt", "content": "buy milk\n"},
+    )
+    assert created.status_code == 200
+    body = created.json()
+    assert body["path"] == "notes/todo.txt"
+    assert body["revision"] == content_revision("buy milk\n")
+
+    read = client.get(
+        "/api/session/file",
+        headers=_auth(security),
+        params={"path": "notes/todo.txt"},
+    )
+    assert read.status_code == 200
+    assert read.json()["content"] == "buy milk\n"
+
+
+def test_create_file_defaults_to_empty_content(
+    client: TestClient, security: AppSecurity, started: dict
+) -> None:
+    created = client.post(
+        "/api/session/file",
+        headers=_auth(security),
+        json={"path": "empty.txt"},
+    )
+    assert created.status_code == 200
+    assert created.json()["size"] == 0
+
+
+def test_create_file_conflict_when_exists(
+    client: TestClient, security: AppSecurity, started: dict
+) -> None:
+    conflict = client.post(
+        "/api/session/file",
+        headers=_auth(security),
+        json={"path": "greeting.txt", "content": "overwrite attempt\n"},
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["code"] == "path_conflict"
+
+
+def test_create_directory_happy_path(
+    client: TestClient, security: AppSecurity, started: dict
+) -> None:
+    created = client.post(
+        "/api/session/directory",
+        headers=_auth(security),
+        json={"path": "docs/nested"},
+    )
+    assert created.status_code == 200
+    assert created.json() == {"path": "docs/nested", "created": True}
+
+    listing = client.get(
+        "/api/session/files",
+        headers=_auth(security),
+        params={"path": "docs"},
+    )
+    assert listing.status_code == 200
+    assert {e["name"] for e in listing.json()["entries"]} == {"nested"}
+
+
+def test_create_directory_conflict_when_exists(
+    client: TestClient, security: AppSecurity, started: dict
+) -> None:
+    first = client.post(
+        "/api/session/directory",
+        headers=_auth(security),
+        json={"path": "docs"},
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        "/api/session/directory",
+        headers=_auth(security),
+        json={"path": "docs"},
+    )
+    assert second.status_code == 409
+    assert second.json()["code"] == "path_conflict"
+
+
+@pytest.mark.parametrize(
+    "bad_path",
+    [
+        "../outside.txt",
+        "/etc/passwd",
+        ".git/config",
+    ],
+)
+def test_create_file_path_traversal_rejected(
+    client: TestClient, security: AppSecurity, started: dict, bad_path: str
+) -> None:
+    response = client.post(
+        "/api/session/file",
+        headers=_auth(security),
+        json={"path": bad_path, "content": "x"},
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "path_rejected"
+
+
 def test_reset_invalidates_old_revision(
     client: TestClient, security: AppSecurity, started: dict
 ) -> None:

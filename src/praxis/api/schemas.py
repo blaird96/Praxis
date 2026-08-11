@@ -15,12 +15,17 @@ class ScenarioInfo(BaseModel):
     description: str
     difficulty: str | None = None
     concepts: list[str] = Field(default_factory=list)
+    available: bool = True
+    unavailable_reason: str | None = None
+    completed: bool = False
 
 
 class ModuleInfo(BaseModel):
     id: str
     title: str
     scenarios: list[ScenarioInfo]
+    available: bool = True
+    unavailable_reason: str | None = None
 
 
 class CatalogResponse(BaseModel):
@@ -92,7 +97,42 @@ class FileWriteOut(BaseModel):
     size: int
 
 
+class FileCreateRequest(BaseModel):
+    path: str
+    content: str = ""
+
+
+class DirectoryCreateRequest(BaseModel):
+    path: str
+
+
+class DirectoryCreateOut(BaseModel):
+    path: str
+    created: bool = True
+
+
 class TerminalTicketResponse(BaseModel):
+    ticket: str
+    expires_in: int
+    session_id: str
+
+
+class CoachStatusResponse(BaseModel):
+    configured: bool
+    source: str | None = None  # "env" | "keyring" | None
+    model: str
+
+
+class CoachKeyRequest(BaseModel):
+    api_key: str
+
+
+class CoachTestResponse(BaseModel):
+    ok: bool
+    detail: str | None = None
+
+
+class CoachTicketResponse(BaseModel):
     ticket: str
     expires_in: int
     session_id: str

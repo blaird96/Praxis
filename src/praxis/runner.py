@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from praxis.errors import ScenarioStateError, SessionNotFoundError
 from praxis.models import Assignment, CheckResult, Session
+from praxis.progress import record_check_result
 from praxis.registry import bootstrap_registry, get_scenario
 from praxis.session import (
     ResolvedSession,
@@ -118,14 +119,14 @@ def check(
     """Validate using hybrid session discovery (CLI)."""
     bootstrap_registry()
     resolved = resolve_session(cwd=cwd, home=home)
-    return _validate_session(resolved.session)
+    return _validate_session(resolved.session, home=home)
 
 
 def check_active(*, home: Path | None = None) -> CheckOutcome:
     """Validate the globally active session (web/app; ignores process cwd)."""
     bootstrap_registry()
     session = require_active_session(home=home)
-    return _validate_session(session)
+    return _validate_session(session, home=home)
 
 
 def require_active_session(*, home: Path | None = None) -> Session:
@@ -147,10 +148,11 @@ def active_assignment(*, home: Path | None = None) -> Assignment:
     return scenario.assignment()
 
 
-def _validate_session(session: Session) -> CheckOutcome:
+def _validate_session(session: Session, *, home: Path | None = None) -> CheckOutcome:
     scenario = get_scenario(session.module, session.scenario)
     state = _load_typed_state(session, scenario)
     result = scenario.validate(Path(session.repo_path), state)
+    record_check_result(session.module, session.scenario, result.passed, home=home)
     return CheckOutcome(result=result, session=session)
 
 

@@ -38,6 +38,10 @@ class FileConflictError(PraxisError):
     """Write rejected because expected_revision does not match current content."""
 
 
+class PathConflictError(PraxisError):
+    """Create rejected because something already exists at the target path."""
+
+
 class UnsupportedTextError(PraxisError):
     """File is not supported UTF-8 editor content."""
 
@@ -295,3 +299,60 @@ def write_text_file(
 
     new_revision = content_revision(content)
     return WriteResult(path=rel, revision=new_revision, size=len(encoded))
+
+
+def create_text_file(
+    session: Session,
+    path: str,
+    content: str = "",
+) -> WriteResult:
+    """Create a new UTF-8 text file; fails if anything already exists there."""
+    rel = _canonical_rel(path, allow_root=False)
+    repo, target = _resolve_under_repo(session, rel)
+    _ensure_parents_not_symlink(repo, target)
+
+    if target.exists():
+        raise PathConflictError(f"{rel} already exists")
+
+    encoded = content.encode("utf-8")
+    if len(encoded) > MAX_EDITOR_BYTES:
+        raise EditorFileTooLargeError(
+            f"Content is {len(encoded)} bytes; editor limit is {MAX_EDITOR_BYTES} bytes"
+        )
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=".praxis-new-",
+        suffix=".tmp",
+        dir=str(target.parent),
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, target)
+    except Exception:
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+        raise
+
+    return WriteResult(path=rel, revision=content_revision(content), size=len(encoded))
+
+
+def create_directory(session: Session, path: str) -> str:
+    """Create a new directory (including intermediate segments); fails if it exists."""
+    rel = _canonical_rel(path, allow_root=False)
+    repo, target = _resolve_under_repo(session, rel)
+    _ensure_parents_not_symlink(repo, target)
+
+    if target.exists():
+        raise PathConflictError(f"{rel} already exists")
+
+    try:
+        target.mkdir(parents=True, exist_ok=False)
+    except FileExistsError as exc:
+        raise PathConflictError(f"{rel} already exists") from exc
+
+    return rel

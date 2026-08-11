@@ -10,7 +10,8 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from praxis.api.errors import register_exception_handlers
-from praxis.api.routes import catalog, files, session, terminal
+from praxis.api.routes import catalog, coach, files, session, terminal
+from praxis.api.routes.coach import coach_websocket
 from praxis.api.routes.terminal import terminal_websocket
 from praxis.api.security import AppSecurity, LocalSecurityMiddleware
 from praxis.registry import bootstrap_registry
@@ -58,6 +59,7 @@ def create_app(
 
     registry = terminal_registry or TerminalRegistry()
     tickets = ticket_store or TerminalTicketStore()
+    coach_tickets = TerminalTicketStore()
     factory = terminal_factory or create_terminal_session
 
     @asynccontextmanager
@@ -77,6 +79,7 @@ def create_app(
     )
     app.state.security = sec
     app.state.ticket_store = tickets
+    app.state.coach_ticket_store = coach_tickets
     app.state.terminal_registry = registry
     app.state.terminal_factory = factory
 
@@ -87,7 +90,9 @@ def create_app(
     app.include_router(session.router, prefix="/api")
     app.include_router(files.router, prefix="/api")
     app.include_router(terminal.router, prefix="/api")
+    app.include_router(coach.router, prefix="/api")
     app.add_api_websocket_route("/ws/terminal", terminal_websocket)
+    app.add_api_websocket_route("/ws/coach", coach_websocket)
 
     if static_dir is not None and static_dir.is_dir():
         app.mount(

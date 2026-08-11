@@ -10,6 +10,8 @@ from praxis.api.schemas import (
     ModuleInfo,
     ScenarioInfo,
 )
+from praxis.modules.prerequisites import module_availability
+from praxis.progress import load_progress, scenario_completed
 from praxis.registry import (
     bootstrap_registry,
     get_scenario,
@@ -32,8 +34,10 @@ def health() -> HealthResponse:
 @router.get("/catalog", response_model=CatalogResponse)
 def catalog() -> CatalogResponse:
     bootstrap_registry()
+    progress = load_progress()
     modules: list[ModuleInfo] = []
     for module_id in list_modules():
+        available, reason = module_availability(module_id)
         scenarios = []
         for scenario_id in list_scenarios(module_id):
             scenario = get_scenario(module_id, scenario_id)
@@ -44,6 +48,9 @@ def catalog() -> CatalogResponse:
                     description=scenario.description,
                     difficulty=scenario.difficulty,
                     concepts=list(getattr(scenario, "concepts", []) or []),
+                    available=available,
+                    unavailable_reason=reason,
+                    completed=scenario_completed(module_id, scenario_id, progress),
                 )
             )
         modules.append(
@@ -51,6 +58,8 @@ def catalog() -> CatalogResponse:
                 id=module_id,
                 title=_module_title(module_id),
                 scenarios=scenarios,
+                available=available,
+                unavailable_reason=reason,
             )
         )
     return CatalogResponse(modules=modules)

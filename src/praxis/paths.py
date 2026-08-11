@@ -21,6 +21,14 @@ def state_path(home: Path | None = None) -> Path:
     return (home or praxis_home()) / "state.json"
 
 
+def progress_path(home: Path | None = None) -> Path:
+    return (home or praxis_home()) / "progress.json"
+
+
+def coaching_prefs_path(home: Path | None = None) -> Path:
+    return (home or praxis_home()) / "coaching_prefs.json"
+
+
 def workspaces_root(home: Path | None = None) -> Path:
     return (home or praxis_home()) / "workspaces"
 

@@ -12,6 +12,7 @@ import {
 import { bootstrapCapabilityToken, getCapabilityToken } from "./api/token";
 import { CatalogView } from "./components/CatalogView";
 import { SessionDashboard } from "./components/SessionDashboard";
+import { SettingsPanel } from "./components/SettingsPanel";
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,6 +23,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [startingKey, setStartingKey] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     setToken(bootstrapCapabilityToken());
@@ -121,7 +123,21 @@ export default function App() {
       <header className="app-header">
         <h1>Praxis</h1>
         <span className="muted">Local lab</span>
+        <button
+          type="button"
+          className="settings-button"
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => setShowSettings(true)}
+          data-testid="open-settings"
+        >
+          ⚙
+        </button>
       </header>
+
+      {showSettings && (
+        <SettingsPanel onClose={() => setShowSettings(false)} />
+      )}
 
       {!token && (
         <div className="panel error">
@@ -145,6 +161,7 @@ export default function App() {
           onCheck={() => void onCheck()}
           onReset={onReset}
           onNewExercise={onNewExercise}
+          onOpenSettings={() => setShowSettings(true)}
         />
       ) : (
         catalog && (

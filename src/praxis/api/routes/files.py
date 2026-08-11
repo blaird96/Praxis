@@ -7,8 +7,11 @@ from fastapi import APIRouter, Query
 from praxis import runner
 from praxis.api import filesystem as fs
 from praxis.api.schemas import (
+    DirectoryCreateOut,
+    DirectoryCreateRequest,
     DirEntryOut,
     FileContentOut,
+    FileCreateRequest,
     FileListOut,
     FileWriteOut,
     FileWriteRequest,
@@ -56,3 +59,17 @@ def write_file(body: FileWriteRequest) -> FileWriteOut:
         expected_revision=body.expected_revision,
     )
     return FileWriteOut(path=result.path, revision=result.revision, size=result.size)
+
+
+@router.post("/file", response_model=FileWriteOut)
+def create_file(body: FileCreateRequest) -> FileWriteOut:
+    session = runner.require_active_session()
+    result = fs.create_text_file(session, body.path, body.content)
+    return FileWriteOut(path=result.path, revision=result.revision, size=result.size)
+
+
+@router.post("/directory", response_model=DirectoryCreateOut)
+def create_directory(body: DirectoryCreateRequest) -> DirectoryCreateOut:
+    session = runner.require_active_session()
+    path = fs.create_directory(session, body.path)
+    return DirectoryCreateOut(path=path)

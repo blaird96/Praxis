@@ -1,9 +1,36 @@
+import type { ReactNode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import * as client from "./api/client";
 import { setCapabilityTokenForTests } from "./api/token";
+
+// react-resizable-panels relies on real layout (getBoundingClientRect) to
+// resolve pointer hit-testing for its drag handles. jsdom has no layout engine
+// (every element reports a 0x0 rect), which makes the handles think every
+// click/keyboard interaction anywhere in the tree is targeting them. Mock the
+// library with plain passthrough containers, same approach already used below
+// for Monaco (FileEditor) and xterm (TerminalPane).
+vi.mock("react-resizable-panels", () => ({
+  PanelGroup: ({
+    children,
+    className,
+  }: {
+    children: ReactNode;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
+  Panel: ({
+    children,
+    className,
+  }: {
+    children: ReactNode;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
+  PanelResizeHandle: ({ className }: { className?: string }) => (
+    <div className={className} />
+  ),
+}));
 
 vi.mock("./components/FileEditor", () => ({
   FileEditor: ({
@@ -45,6 +72,12 @@ vi.mock("./components/TerminalPane", () => ({
       data-session={sessionId}
       data-restart={restartToken}
     />
+  ),
+}));
+
+vi.mock("./components/CoachPanel", () => ({
+  CoachPanel: ({ sessionId }: { sessionId: string }) => (
+    <div data-testid="coach-panel" data-session={sessionId} />
   ),
 }));
 
@@ -146,6 +179,30 @@ describe("App start flow", () => {
     expect(
       screen.getByText(/Previous session retained: oldsession/),
     ).toBeInTheDocument();
+  });
+
+  it("gear icon opens and closes the Settings panel", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(client, "fetchCatalog").mockResolvedValue(catalog);
+    vi.spyOn(client, "fetchSession").mockRejectedValue(
+      new Error("No active Praxis session"),
+    );
+    vi.spyOn(client, "getCoachStatus").mockResolvedValue({
+      configured: false,
+      source: null,
+      model: "gpt-4o-mini",
+    });
+
+    render(<App />);
+    await screen.findByTestId("catalog");
+    await user.click(screen.getByTestId("open-settings"));
+    expect(await screen.findByTestId("settings-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("coach-status-label")).toHaveTextContent(
+      "Not configured",
+    );
+
+    await user.click(screen.getByTestId("settings-close"));
+    expect(screen.queryByTestId("settings-panel")).not.toBeInTheDocument();
   });
 
   it("New Exercise returns to catalog without calling reset/start", async () => {

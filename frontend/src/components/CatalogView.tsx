@@ -17,28 +17,51 @@ export function CatalogView({ catalog, startingKey, onStart }: Props) {
       {catalog.modules.map((module) => (
         <section key={module.id} className="catalog-module">
           <h3>{module.title}</h3>
+          {module.available === false && module.unavailable_reason && (
+            <p className="error" role="status">
+              {module.unavailable_reason}
+            </p>
+          )}
           {module.scenarios.map((scenario) => {
             const key = `${module.id}/${scenario.id}`;
             const starting = startingKey === key;
+            const available = scenario.available !== false;
             return (
               <article key={key} className="catalog-scenario">
-                <h4>{scenario.title}</h4>
+                <h4>
+                  {scenario.title}
+                  {scenario.completed && (
+                    <span className="badge-pass badge-completed" title="Completed">
+                      {" "}
+                      ✓ Completed
+                    </span>
+                  )}
+                </h4>
                 <p>{scenario.description}</p>
                 {scenario.difficulty && (
                   <p className="muted">Difficulty: {scenario.difficulty}</p>
                 )}
                 {scenario.concepts && scenario.concepts.length > 0 && (
-                  <p className="muted">Concepts: {scenario.concepts.join(", ")}</p>
+                  <p className="muted">
+                    Concepts: {scenario.concepts.join(", ")}
+                  </p>
+                )}
+                {!available && scenario.unavailable_reason && (
+                  <p className="muted">{scenario.unavailable_reason}</p>
                 )}
                 <div className="actions">
                   <button
                     className="primary"
                     type="button"
-                    disabled={startingKey !== null}
+                    disabled={startingKey !== null || !available}
                     data-testid={`start-${module.id}-${scenario.id}`}
                     onClick={() => onStart(module.id, scenario)}
                   >
-                    {starting ? "Starting exercise…" : "Start Exercise"}
+                    {!available
+                      ? "Unavailable"
+                      : starting
+                        ? "Starting exercise…"
+                        : "Start Exercise"}
                   </button>
                 </div>
               </article>

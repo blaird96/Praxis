@@ -36,6 +36,9 @@ export type ScenarioInfo = {
   description: string;
   difficulty: string | null;
   concepts?: string[];
+  available?: boolean;
+  unavailable_reason?: string | null;
+  completed?: boolean;
 };
 
 export type Catalog = {
@@ -43,6 +46,8 @@ export type Catalog = {
     id: string;
     title: string;
     scenarios: ScenarioInfo[];
+    available?: boolean;
+    unavailable_reason?: string | null;
   }>;
 };
 
@@ -157,6 +162,25 @@ export function writeFile(
   });
 }
 
+export function createFile(
+  path: string,
+  content = "",
+): Promise<FileWriteResult> {
+  return api<FileWriteResult>("/api/session/file", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, content }),
+  });
+}
+
+export function createDirectory(path: string): Promise<{ path: string; created: boolean }> {
+  return api<{ path: string; created: boolean }>("/api/session/directory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+}
+
 export type TerminalTicket = {
   ticket: string;
   expires_in: number;
@@ -171,4 +195,48 @@ export function fetchTerminalTicket(): Promise<TerminalTicket> {
 export function terminalWebSocketUrl(ticket: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws/terminal?ticket=${encodeURIComponent(ticket)}`;
+}
+
+export type CoachStatus = {
+  configured: boolean;
+  source: "env" | "keyring" | null;
+  model: string;
+};
+
+export function getCoachStatus(): Promise<CoachStatus> {
+  return api<CoachStatus>("/api/coach/status");
+}
+
+export function configureCoachKey(apiKey: string): Promise<CoachStatus> {
+  return api<CoachStatus>("/api/coach/key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: apiKey }),
+  });
+}
+
+export function removeCoachKey(): Promise<CoachStatus> {
+  return api<CoachStatus>("/api/coach/key", { method: "DELETE" });
+}
+
+export function testCoachConnection(): Promise<{ ok: boolean; detail: string | null }> {
+  return api<{ ok: boolean; detail: string | null }>("/api/coach/test", {
+    method: "POST",
+  });
+}
+
+export type CoachTicket = {
+  ticket: string;
+  expires_in: number;
+  session_id: string;
+};
+
+export function issueCoachTicket(): Promise<CoachTicket> {
+  return api<CoachTicket>("/api/coach/ticket", { method: "POST" });
+}
+
+/** Build the coach WebSocket URL for a one-shot ticket (never put the capability token here). */
+export function coachWebSocketUrl(ticket: string): string {
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/ws/coach?ticket=${encodeURIComponent(ticket)}`;
 }
